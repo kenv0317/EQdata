@@ -6,6 +6,8 @@
 ページ上部のボタンを押すとグラフに関しては、そのボタンに書かれた地域が赤色にハイライトされ、
 表に関してはそのボタンに書かれた地域のみに絞れれたデータの一覧が表示されるようになります。  
 
+![EQdata_out](https://github.com/kenv0317/EQdata/assets/71165696/3b37a4db-5b00-4585-9235-53eb6bbdc19d)
+
 ## 各スクリプトについて
 - Templates
   - index.html  (HTML, CSS, JavaScriptを記述したファイル)
