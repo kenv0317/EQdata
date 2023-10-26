@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<!-- Bootstrap CSS -->
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+<style>
+#mygraph {width:50px; height:50px;}
+
+.container {
+  display: flex;
+  margin:0px;
+  margin-top:30px;
+}
+
+.item2 { flex-shrink: 2; }
+
+.table {margin:10px; width:90%;}
+</style>
+<body>
+  <nav class="navbar navbar-light" style="background-color: #e3f2fd;">
+    <!-- Navbar content -->
+    <h1>EQdata</h1>
+    <button onclick="change('')" class="btn btn-outline-danger">全域</button>
+    <button onclick="change('東アジア・ロシア東部')" class="btn btn-outline-primary">東アジア・ロシア東部</button>
+    <button onclick="change('東南アジア・オセアニア')" class="btn btn-outline-primary">東南アジア・オセアニア</button>
+    <button onclick="change('南・中央・西アジア')" class="btn btn-outline-primary">南・中央・西アジア</button>
+    <button onclick="change('ヨーロッパ')" class="btn btn-outline-primary">ヨーロッパ</button>
+    <button onclick="change('アフリカ')" class="btn btn-outline-primary">アフリカ</button>
+    <button onclick="change('南北アメリカ')" class="btn btn-outline-primary">南北アメリカ</button>
+  </nav>
+
+  <div class="container">
+    <div class="item1"><h3 class="ml-4">各地域における主な地震の発生数(合計202件)</h3></div>
+    <div class="item2"></div>
+  </div>
+<div id='mygraph'></div>
+<div class="item1"><h3 class="ml-4">主な地震の表</h3></div>
+
+<script src="http://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crossfilter/1.3.12/crossfilter.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+<script>
+
+d3.json("http://127.0.0.1:50008/api/earthquakes").then(function(data) { // d3.json(url)でurlにアクセス .then(f(data))で結果を関数fに引数dataで渡す
+  onDataLoaded(data["_items"],""); 
+});
+
+//ボタンを押した時に実行される関数
+function change(location) {
+  d3.json("http://127.0.0.1:50008/api/earthquakes").then(function(data) {
+  onDataLoaded(data["_items"],location);
+});
+}
+
+//地域ごとの地震数をカウントする
+function count(data) {
+  var count = {"東アジア・ロシア東部":0,
+               "東南アジア・オセアニア":0,
+               "南・中央・西アジア":0,
+               "ヨーロッパ":0,
+               "アフリカ":0,
+               "南北アメリカ":0
+};
+  for (let i = 0 ; i < data.length ; i++){
+    count[data[i]["location"]]+=1;
+  }
+  return count
+}
+
+//地域データ絞り込みの関数
+function changeLocation(dataset,location) {
+  var data = dataset;
+  var eq = crossfilter(data); // crossfilter初期化
+  var eqByType = eq.dimension(function(d) { return d.location; }); // "location"次元のフィルタ
+  eqByType.filter(location);   // "location" が location のデータに絞り込み
+  var data1 = eqByType.top(Infinity);  
+  console.log(data1)
+  return data1
+
+}
+
+//棒グラフを描く関数
+function barChart(dataset,location) {
+  var width = 800; // グラフの幅
+  var height = 300; // グラフの高さ
+  var padding = 30; // スケール表示用マージン
+
+  var num = count(dataset); //地域ごとの地震の数のリスト
+  var svg = d3.select("svg").remove(); //前に描画したグラフを削除しておく
+  var svg = d3.select("svg").remove();
+  // 2. SVG領域の設定
+
+  var svg = d3.select(".item1").append("svg").attr("width", width).attr("height", height);  // id=mygraphの要素下にsvg要素を追加
+ 
+  // 3. スケール関数の生成 (データの値をグラフ軸上の座標値に変換する関数)
+  var xScale = d3.scaleBand()
+    .rangeRound([padding, width - padding])
+    .padding(0.1)
+    .domain(dataset.map(function(d) { return d.location; }));                     // ※要修正 d.name 各自のデータにあわせる
+ 
+  var yScale = d3.scaleLinear()
+    .domain([0, d3.max(dataset, function(d) { return num[d.location]; })])            // ※要修正 d.value 各自のデータにあわせる 
+    .range([height - padding, padding]);
+ 
+  // 4. 座標軸SVGの追加
+  svg.append("g")
+    .attr("transform", "translate(" + 0 + "," + (height - padding) + ")")
+    .call(d3.axisBottom(xScale));
+ 
+  svg.append("g")
+    .attr("transform", "translate(" + padding + "," + 0 + ")")
+    .call(d3.axisLeft(yScale));
+ 
+  // 5. バーの追加
+  svg.append("g")
+    .selectAll("rect")
+    .data(dataset)
+    .enter()
+    .append("rect")
+    .attr("x", function(d) { return xScale(d.location); })   // ※要修正 d.name 各自のデータにあわせる
+    .attr("y", function(d) { return yScale(num[d.location]); })  // ※要修正 d.value 各自のデータにあわせる
+    .attr("width", xScale.bandwidth())
+    .attr("height", function(d) { return height - padding - yScale(num[d.location]); })
+    //.attr("fill", "steelblue");
+    .attr("fill", function(d) { return "rgb(0, 0, " + (num[d.location] * 5) + ")"; })
+    .attr("fill", function(d){return d.location==location ? "red" : "rgb(0, 0, " + (num[d.location] * 5) + ")";});
+
+}
+
+function circleChart(dataset,location) {
+  var width = 400; // グラフの幅
+  var height = 300; // グラフの高さ
+  var radius = Math.min(width, height) / 2 - 10;
+
+  var num = count(dataset); //地域ごとの地震の数のリスト
+  //円グラフが描きやすいデータの形に変更
+  var dataset = [
+        {name: "東アジア・ロシア東部", value: 0},
+        {name: "東南アジア・オセアニア", value: 0},
+        {name: "南・中央・西アジア", value: 0},
+        {name: "ヨーロッパ", value: 0},
+        {name: "アフリカ", value: 0},
+        {name: "南北アメリカ", value: 0},
+      ];
+  for (let i = 0 ; i < 6 ; i++){
+    console.log(dataset[i].name);
+    dataset[i].value = num[dataset[i].name]; 
+  }
+  //var svg = d3.select("svg").remove();
+  // 2. SVG領域の設定
+  var svg = d3.select(".item2").append("svg").attr("width", width).attr("height", height);
+ 
+  g = svg.append("g").attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+ 
+  // 3. カラーの設定
+  var color = d3.scaleOrdinal()
+    .range(["#DC3912", "#3366CC", "#109618", "#FF9900", "#990099", "#808080"]);
+ 
+  // 4. pieチャートデータセット用関数の設定
+  var pie = d3.pie()
+    .value(function(d) { return d.value; })
+    .sort(null);
+ 
+  // 5. pieチャートSVG要素の設定
+  var pieGroup = g.selectAll(".pie")
+    .data(pie(dataset))
+    .enter()
+    .append("g")
+    .attr("class", "pie");
+ 
+  arc = d3.arc()
+    .outerRadius(radius)
+    .innerRadius(0);
+ 
+  pieGroup.append("path")
+    .attr("d", arc)
+    .attr("fill", function(d) { return d.data.name==location ? "red" : color(d.index) })
+    .attr("opacity", 0.75)
+    .attr("stroke", "white");
+ 
+  // 6. pieチャートテキストSVG要素の設定
+  var text = d3.arc()
+    .outerRadius(radius - 30)
+    .innerRadius(radius - 30);
+ 
+  pieGroup.append("text")
+    .attr("fill", "black")
+    .attr("transform", function(d) { return "translate(" + text.centroid(d) + ")"; })
+    .attr("dy", "5px")
+    .attr("font", "10px")
+    .attr("text-anchor", "middle")
+    .text(function(d) { return d.data.name; });
+}
+
+//表を作成する関数
+function table(dataset,location) {
+  var names = d3.keys(dataset[0]);
+
+  var table = d3.select("table").remove(); //前に描画した表を削除しておく
+  if (location != "") {
+    dataset = changeLocation(dataset,location);
+  }
+
+  var table = d3.select("body")
+    .append("table")
+    .attr("border", "1") // 枠線表示;
+    .classed("table",true);
+
+  table.append("thead")
+    .append("tr")
+    .selectAll("th")
+    .data(names)
+    .enter()
+    .append("th")
+    .text(function(d) { return d; });
+
+     //bootstrapのためのクラス追加
+
+    table.select("thead").classed("thead-dark",true);
+    
+ 
+  table.append("tbody")
+    .selectAll("tr")
+    .data(dataset)
+    .enter()
+    .append("tr")
+    .selectAll("td")
+    .data(function(row) { return d3.entries(row); })
+    .enter()
+    .append("td")
+    .text(function(d) { return d.value; });
+}
+
+function onDataLoaded(dataset,location) {
+  barChart(dataset,location);
+  circleChart(dataset,location);
+  table(dataset,location);
+}
+</script>
